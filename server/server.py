@@ -1,16 +1,21 @@
-from datetime import datetime
 from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_required, current_user, login_user, logout_user
 from flask_cors import CORS
-import util
+from datetime import datetime
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from flask_sqlalchemy import SQLAlchemy
+from models import db, bcrypt, login_manager, User,Prediction, create_user, get_user_by_email, check_password, get_user_by_id
+from dotenv import load_dotenv
 import os
-from models import db, bcrypt, login_manager, User, Prediction, create_user, get_user_by_email, check_password, get_user_by_id
+import util
 
 app = Flask(__name__, template_folder='../client/templates', static_folder='../client/static')
 CORS(app)
-
+load_dotenv()
+# SQLite Cloud connection string - replace with your actual connection string
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SECRET_KEY'] = 'your_secret_key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'  # Update with your database URI
 
 db.init_app(app)
 bcrypt.init_app(app)
@@ -57,20 +62,11 @@ def save_prediction():
         sqft = float(request.form['sqft'])
         bhk = int(request.form['bhk'])
         bath = int(request.form['bath'])
-        estimated_price = request.form['estimated_price'].strip()  # Ensure no extra spaces
+        estimated_price = request.form['estimated_price'].strip()
         date_str = request.form['date']
         date = datetime.strptime(date_str, '%Y-%m-%d').date()
 
-        new_prediction = Prediction(
-            location=location,
-            sqft=sqft,
-            bhk=bhk,
-            bath=bath,
-            price=estimated_price,
-            user_id=user_id,
-            date=date
-        )
-
+        new_prediction = Prediction(location=location, sqft=sqft, bhk=bhk, bath=bath, price=estimated_price, user_id=user_id, date=date)
         db.session.add(new_prediction)
         db.session.commit()
 
@@ -93,8 +89,10 @@ def index():
 @login_required
 def get_saved_predictions():
     user_id = current_user.id
-    saved_predictions = Prediction.query.filter_by(user_id=user_id).all()
-    predictions_list = [{'location': p.location, 'sqft': p.sqft, 'bhk': p.bhk, 'bath': p.bath, 'price': p.price, 'date': p.date.strftime('%Y-%m-%d')} for p in saved_predictions]
+    predictions = Prediction.query.filter_by(user_id=user_id).all()
+
+    predictions_list = [{'location': p.location, 'sqft': p.sqft, 'bhk': p.bhk, 'bath': p.bath, 'price': p.price, 'date': p.date.strftime('%Y-%m-%d')} for p in predictions]
+
     return jsonify({'saved_predictions': predictions_list})
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -128,7 +126,6 @@ def logout():
 if __name__ == "__main__":
     print("Starting Python Flask Server For Home Price Prediction...")
     with app.app_context():
-        db.create_all()
         util.load_saved_artifacts()
     # Bind to the port specified by Render
     port = int(os.environ.get("PORT", 5000))
