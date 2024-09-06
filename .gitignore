@@ -1,0 +1,13 @@
+.env
+# Ignore all PNG and PDF files
+*.png
+*.pdf
+*.svg
+
+# Ignore all DOC and DOCX files
+*.doc
+*.docx
+
+
+# Ignore directories
+venv/
